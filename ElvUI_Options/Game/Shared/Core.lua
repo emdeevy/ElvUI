@@ -368,30 +368,40 @@ E.Options.args.profiles.args.distributeGlobal = ACH:Execute(L["Share Global"], n
 E.Options.args.profiles.args.allowDistributor = ACH:Toggle(L["Allow Sharing"], L["Both users will need this option enabled."], 4, nil, nil, nil, function() return E.global.general.allowDistributor end, function(_, value) E.global.general.allowDistributor = value; D:UpdateSettings() end)
 E.Options.args.profiles.args.spacer = ACH:Spacer(10)
 
-E.Options.args.profiles.args.profile = E.Libs.AceDBOptions:GetOptionsTable(E.data)
-E.Options.args.profiles.args.private = E.Libs.AceDBOptions:GetOptionsTable(E.charSettings)
+if E.data and E.charSettings then
+	E.Options.args.profiles.args.profile = E.Libs.AceDBOptions:GetOptionsTable(E.data)
+	E.Options.args.profiles.args.private = E.Libs.AceDBOptions:GetOptionsTable(E.charSettings)
 
-SetupProfile(E.Options.args.profiles.args.profile, L["Profile"], 1, L["Are you sure you want to reset all the settings on this profile?"])
-SetupProfile(E.Options.args.profiles.args.private, L["Private"], 2, L["Are you sure you want to reset all the settings on this profile?"])
+	SetupProfile(E.Options.args.profiles.args.profile, L["Profile"], 1, L["Are you sure you want to reset all the settings on this profile?"])
+	SetupProfile(E.Options.args.profiles.args.private, L["Private"], 2, L["Are you sure you want to reset all the settings on this profile?"])
 
-E.Libs.AceConfig:RegisterOptionsTable('ElvProfiles', E.Options.args.profiles.args.profile)
+	E.Libs.AceConfig:RegisterOptionsTable('ElvProfiles', E.Options.args.profiles.args.profile)
 
-if E.Retail or E.Mists or E.TBC or E.ClassicSOD or E.ClassicAnniv or E.ClassicAnnivHC then
-	E.Libs.DualSpec:EnhanceOptions(E.Options.args.profiles.args.profile, E.data)
-end
-
-E.Libs.AceConfig:RegisterOptionsTable('ElvPrivates', E.Options.args.profiles.args.private)
-
-E.Options.args.profiles.args.private.args.choose.confirm = function(info, value)
-	if info[#info-1] == 'private' then
-		return format(L["Choosing Settings %s. This will reload the UI.\n\n Are you sure?"], value)
-	else
-		return false
+	if E.Retail or E.Mists or E.TBC or E.ClassicSOD or E.ClassicAnniv or E.ClassicAnnivHC then
+		E.Libs.DualSpec:EnhanceOptions(E.Options.args.profiles.args.profile, E.data)
 	end
-end
 
-E.Options.args.profiles.args.private.args.copyfrom.confirm = function(info, value)
-	return format(L["Copy settings from %s. This will overwrite %s profile.\n\n Are you sure?"], value, info.handler:GetCurrentProfile())
+	E.Libs.AceConfig:RegisterOptionsTable('ElvPrivates', E.Options.args.profiles.args.private)
+
+	E.Options.args.profiles.args.private.args.choose.confirm = function(info, value)
+		if info[#info-1] == 'private' then
+			return format(L["Choosing Settings %s. This will reload the UI.\n\n Are you sure?"], value)
+		else
+			return false
+		end
+	end
+
+	E.Options.args.profiles.args.private.args.copyfrom.confirm = function(info, value)
+		return format(L["Copy settings from %s. This will overwrite %s profile.\n\n Are you sure?"], value, info.handler:GetCurrentProfile())
+	end
+else
+	local profileFallback = ACH:Group(L["Profile"] or 'Profile', nil, 1)
+	profileFallback.args.desc = ACH:Description('Profiles are unavailable because the database is not initialized.', 1)
+	E.Options.args.profiles.args.profile = profileFallback
+
+	local privateFallback = ACH:Group(L["Private"] or 'Private', nil, 2)
+	privateFallback.args.desc = ACH:Description('Profiles are unavailable because the database is not initialized.', 1)
+	E.Options.args.profiles.args.private = privateFallback
 end
 
 do -- Import and Export

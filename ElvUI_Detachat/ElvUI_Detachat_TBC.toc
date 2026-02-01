@@ -1,0 +1,13 @@
+## Title: |cff1784d1ElvUI|r Detachat
+## Notes: Detach the chat input and make it movable with custom options.
+## Author: Detachat Team
+## Version: @project-version@
+## RequiredDeps: ElvUI
+## OptionalDeps: ElvUI_Options
+## DefaultState: Enabled
+## Interface: 20505
+## Group: ElvUI_Detachat
+
+Locales\enUS.lua
+ElvUI_Detachat.lua
+Options.lua
