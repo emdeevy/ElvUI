@@ -1,7 +1,7 @@
 -- Main entry point for the Detachat addon.
 local ADDON_NAME = ...
 local E, _, V, P, G = unpack(ElvUI)
-local GetFocus = _G.GetFocus or _G.GetCurrentKeyBoardFocus
+local GetKeyboardFocus = _G.GetCurrentKeyBoardFocus
 
 -- Module setup: Detachat hooks into ElvUI's chat system and re-anchors edit boxes.
 local D = E:NewModule('Detachat', 'AceHook-3.0')
@@ -14,6 +14,7 @@ local L = (E.Libs.ACL and E.Libs.ACL:GetLocale(ADDON_NAME, true)) or {}
 local MOVER_NAME = 'DetachatInputMover'
 local HOLDER_NAME = 'ElvUI_DetachatInputHolder'
 local COUNTER_WIDTH = 40
+local LABEL_PADDING = 6
 local INFINITY_SYMBOL = '∞'
 
 -- Default profile settings for the plugin.
@@ -24,6 +25,9 @@ P.detachat = {
 	width = 360,
 	height = 22,
 	padding = 0,
+	inputPadding = 0,
+	labelPadding = 6,
+	counterPadding = 6,
 	strata = 'DIALOG',
 	level = 5,
 	showCounter = true,
@@ -55,6 +59,9 @@ function D:EnsureDB()
 	end
 
 	self.db = E.db.detachat
+	if self.db.inputPadding == nil and self.db.padding ~= nil then
+		self.db.inputPadding = self.db.padding
+	end
 	return true
 end
 
@@ -86,6 +93,36 @@ function D:GetDesiredWidth()
 	return self.db.width
 end
 
+-- Helper: resolve the text padding for label frames.
+function D:GetLabelPadding()
+	local padding = self.db and self.db.labelPadding
+	if padding == nil then
+		padding = LABEL_PADDING
+	end
+
+	return padding
+end
+
+-- Helper: resolve the text padding for the counter frame.
+function D:GetCounterPadding()
+	local padding = self.db and self.db.counterPadding
+	if padding == nil then
+		padding = LABEL_PADDING
+	end
+
+	return padding
+end
+
+-- Helper: resolve the edit box padding inside the input frame.
+function D:GetInputPadding()
+	local padding = self.db and self.db.inputPadding
+	if padding == nil then
+		padding = self.db and self.db.padding
+	end
+
+	return padding or 0
+end
+
 -- Keep the holder's size and layer settings in sync with the database.
 function D:UpdateHolderLayout()
 	if not self.Holder then return end
@@ -96,11 +133,27 @@ function D:UpdateHolderLayout()
 	-- A small bump keeps the edit box above the holder when they share strata.
 	self.Holder:SetFrameLevel(self.db.level)
 
+	if self.TypeFrame then
+		self.TypeFrame:SetFrameStrata(self.Holder:GetFrameStrata())
+		self.TypeFrame:SetFrameLevel(self.Holder:GetFrameLevel())
+	end
+
+	if self.NameFrame then
+		self.NameFrame:SetFrameStrata(self.Holder:GetFrameStrata())
+		self.NameFrame:SetFrameLevel(self.Holder:GetFrameLevel())
+	end
+
+	if self.RealmFrame then
+		self.RealmFrame:SetFrameStrata(self.Holder:GetFrameStrata())
+		self.RealmFrame:SetFrameLevel(self.Holder:GetFrameLevel())
+	end
+
+	if self.InputFrame then
+		self.InputFrame:SetFrameStrata(self.Holder:GetFrameStrata())
+		self.InputFrame:SetFrameLevel(self.Holder:GetFrameLevel())
+	end
+
 	if self.CounterFrame then
-		local spacing = (E.Spacing or 1) + (E.Border or 1)
-		self.CounterFrame:ClearAllPoints()
-		self.CounterFrame:Point('LEFT', self.Holder, 'RIGHT', spacing, 0)
-		self.CounterFrame:Size(COUNTER_WIDTH, self.db.height)
 		self.CounterFrame:SetFrameStrata(self.Holder:GetFrameStrata())
 		self.CounterFrame:SetFrameLevel(self.Holder:GetFrameLevel())
 	end
@@ -144,20 +197,72 @@ function D:CreateHolder()
 	E:CreateMover(holder, MOVER_NAME, L["Chat Input"] or 'Chat Input', nil, nil, nil, nil, nil, 'chat,detachat')
 end
 
+-- Create the header frames that sit to the left of the input.
+function D:CreateHeaderFrames()
+	if self.TypeFrame then return end
+
+	local fallbackFont = (E.media and E.media.normFont) or _G.STANDARD_TEXT_FONT
+	local fallbackSize = (E.db and E.db.general and E.db.general.fontSize) or 12
+
+	local function CreateLabelFrame(suffix)
+		local frame = CreateFrame('Frame', HOLDER_NAME..suffix, self.Holder or E.UIParent)
+		frame:SetTemplate(nil, true)
+		frame.Text = frame:CreateFontString(nil, 'ARTWORK')
+		frame.Text:SetJustifyH('CENTER')
+		if fallbackFont then
+			frame.Text:SetFont(fallbackFont, fallbackSize)
+		end
+		return frame
+	end
+
+	self.TypeFrame = CreateLabelFrame('Type')
+	self.NameFrame = CreateLabelFrame('Name')
+	self.RealmFrame = CreateLabelFrame('Realm')
+
+	-- InputFrame is an anchor for the edit box; the edit box provides its own border.
+	self.InputFrame = CreateFrame('Frame', HOLDER_NAME..'Input', self.Holder or E.UIParent)
+end
+
 -- Create a separate frame for the character counter.
 function D:CreateCounterFrame()
 	if self.CounterFrame or not self.Holder then return end
 
-	local frame = CreateFrame('Frame', HOLDER_NAME..'Counter', E.UIParent)
+	local fallbackFont = (E.media and E.media.normFont) or _G.STANDARD_TEXT_FONT
+	local fallbackSize = (E.db and E.db.general and E.db.general.fontSize) or 12
+
+	local frame = CreateFrame('Frame', HOLDER_NAME..'Counter', self.Holder or E.UIParent)
 	frame:Point('LEFT', self.Holder, 'RIGHT', (E.Spacing or 1) + (E.Border or 1), 0)
 	frame:Size(COUNTER_WIDTH, self.db.height)
 	frame:SetFrameStrata(self.db.strata)
 	frame:SetFrameLevel(self.db.level)
 	frame:SetTemplate(nil, true)
 	frame.Text = frame:CreateFontString(nil, 'ARTWORK')
-	frame.Text:SetPoint('CENTER')
 	frame.Text:SetJustifyH('CENTER')
+	if fallbackFont then
+		frame.Text:SetFont(fallbackFont, fallbackSize)
+	end
 	self.CounterFrame = frame
+end
+
+-- Apply text padding inside the header and counter frames.
+function D:ApplyHeaderPadding()
+	local labelPadding = self:GetLabelPadding()
+	local frames = { self.TypeFrame, self.NameFrame, self.RealmFrame }
+
+	for _, frame in ipairs(frames) do
+		if frame and frame.Text then
+			frame.Text:ClearAllPoints()
+			frame.Text:SetPoint('LEFT', frame, 'LEFT', labelPadding, 0)
+			frame.Text:SetPoint('RIGHT', frame, 'RIGHT', -labelPadding, 0)
+		end
+	end
+
+	local counterPadding = self:GetCounterPadding()
+	if self.CounterFrame and self.CounterFrame.Text then
+		self.CounterFrame.Text:ClearAllPoints()
+		self.CounterFrame.Text:SetPoint('LEFT', self.CounterFrame, 'LEFT', counterPadding, 0)
+		self.CounterFrame.Text:SetPoint('RIGHT', self.CounterFrame, 'RIGHT', -counterPadding, 0)
+	end
 end
 
 -- Match the counter font and color to ElvUI's character count font.
@@ -171,6 +276,231 @@ function D:SyncCounterFont(editbox)
 
 	local r, g, b, a = editbox.characterCount:GetTextColor()
 	self.CounterFrame.Text:SetTextColor(r, g, b, a)
+end
+
+-- Build the display label for a given chat type.
+function D:GetChatTypeLabel(chatType, chanTarget)
+	if chatType == 'CHANNEL' and chanTarget then
+		local index, name = GetChannelName(chanTarget)
+		if name and name ~= '' then
+			if index and index > 0 then
+				return format('%d. %s', index, name)
+			end
+			return name
+		end
+	end
+
+	local labels = {
+		SAY = _G.SAY or 'Say',
+		YELL = _G.YELL or 'Yell',
+		EMOTE = _G.EMOTE or 'Emote',
+		GUILD = _G.GUILD or 'Guild',
+		OFFICER = _G.OFFICER or 'Officer',
+		PARTY = _G.PARTY or 'Party',
+		RAID = _G.RAID or 'Raid',
+		RAID_WARNING = _G.RAID_WARNING or 'Raid',
+		INSTANCE_CHAT = _G.INSTANCE or 'Instance',
+		WHISPER = _G.WHISPER or 'Whisper',
+		BN_WHISPER = _G.WHISPER or 'Whisper',
+		CHANNEL = _G.CHANNEL or 'Channel',
+	}
+
+	return labels[chatType] or chatType
+end
+
+-- Resolve the whisper target into name + realm parts.
+function D:GetWhisperTarget(editbox)
+	local target = editbox:GetAttribute('tellTarget') or editbox:GetAttribute('bnetTarget') or editbox:GetAttribute('chatTarget')
+	if not target or target == '' then return nil end
+
+	local name, realm = strsplit('-', target)
+	if name and name ~= '' then
+		return name, realm
+	end
+end
+
+-- Apply the chat-type text color while matching the edit box backdrop and border styling.
+function D:ApplyHeaderColors(info, editbox)
+	local r, g, b = 1, 1, 1
+	if info then
+		r, g, b = info.r or 1, info.g or 1, info.b or 1
+	end
+
+	local backR, backG, backB, backA
+	local borderR, borderG, borderB, borderA
+	if editbox and editbox.GetBackdropColor then
+		backR, backG, backB, backA = editbox:GetBackdropColor()
+	end
+	if editbox and editbox.GetBackdropBorderColor then
+		borderR, borderG, borderB, borderA = editbox:GetBackdropBorderColor()
+	end
+
+	if not borderR and E.media and E.media.bordercolor then
+		borderR, borderG, borderB, borderA = E.media.bordercolor.r, E.media.bordercolor.g, E.media.bordercolor.b, E.media.bordercolor.a or 1
+	end
+
+	local frames = { self.TypeFrame, self.NameFrame, self.RealmFrame }
+	for _, frame in ipairs(frames) do
+		if frame then
+			if editbox and editbox.template and frame.SetTemplate then
+				frame:SetTemplate(editbox.template, true)
+			end
+			if frame.Text then
+				frame.Text:SetTextColor(r, g, b)
+			end
+			if borderR and frame.SetBackdropBorderColor then
+				frame:SetBackdropBorderColor(borderR, borderG, borderB, borderA)
+			end
+			if backR and frame.SetBackdropColor then
+				frame:SetBackdropColor(backR, backG, backB, backA)
+			end
+		end
+	end
+end
+
+-- Update header frames and layout based on the active chat type.
+function D:UpdateHeaderFrames(editbox)
+	if not editbox or not self.Holder then return end
+	self:CreateHeaderFrames()
+
+	local chatType = editbox:GetAttribute('chatType') or 'SAY'
+	local chanTarget = editbox:GetAttribute('channelTarget')
+	local info = _G.ChatTypeInfo and _G.ChatTypeInfo[chatType]
+
+	if chatType == 'CHANNEL' and chanTarget then
+		local index = GetChannelName(chanTarget)
+		if index and index > 0 then
+			info = _G.ChatTypeInfo[chatType..index] or info
+		end
+	end
+
+	local typeLabel = self:GetChatTypeLabel(chatType, chanTarget)
+	local name, realm
+	if chatType == 'WHISPER' or chatType == 'BN_WHISPER' or chatType == 'REPLY' or chatType == 'BN_REPLY' then
+		name, realm = self:GetWhisperTarget(editbox)
+	end
+
+	-- Use the editbox font for label frames.
+	local font, size, flags = editbox:GetFont()
+	if font then
+		self.TypeFrame.Text:SetFont(font, size, flags)
+		self.NameFrame.Text:SetFont(font, size, flags)
+		self.RealmFrame.Text:SetFont(font, size, flags)
+	end
+
+	self.TypeFrame.Text:SetText(typeLabel or '')
+	self.TypeFrame:SetShown(typeLabel and typeLabel ~= '')
+
+	self.NameFrame.Text:SetText(name or '')
+	self.NameFrame:SetShown(name and name ~= '')
+
+	self.RealmFrame.Text:SetText(realm or '')
+	self.RealmFrame:SetShown(realm and realm ~= '')
+
+	self:ApplyHeaderColors(info, editbox)
+	self:SyncCounterFont(editbox)
+	if self.db.showCounter then
+		self:SyncCounterStyle(editbox)
+	end
+	self:ApplyHeaderPadding()
+
+	-- Calculate widths based on text content.
+	local labelPadding = self:GetLabelPadding()
+	local counterPadding = self:GetCounterPadding()
+
+	local function FrameWidth(frame)
+		if not frame:IsShown() then return 0 end
+		return frame.Text:GetStringWidth() + (labelPadding * 2)
+	end
+
+	local typeWidth = FrameWidth(self.TypeFrame)
+	local nameWidth = FrameWidth(self.NameFrame)
+	local realmWidth = FrameWidth(self.RealmFrame)
+	local inputWidth = self:GetDesiredWidth()
+	local counterTextWidth = (self.CounterFrame and self.CounterFrame.Text and self.CounterFrame.Text:GetStringWidth()) or 0
+	local counterWidth = 0
+	if self.db.showCounter then
+		counterWidth = math.max(COUNTER_WIDTH, counterTextWidth + (counterPadding * 2))
+	end
+
+	-- Layout left-to-right.
+	local spacing = (E.Spacing or 1) + (E.Border or 1)
+	local current = self.Holder
+	local total = 0
+
+	local function Place(frame, width)
+		if not frame then return end
+		frame:ClearAllPoints()
+		if current == self.Holder then
+			frame:Point('TOPLEFT', self.Holder, 'TOPLEFT', 0, 0)
+		else
+			frame:Point('LEFT', current, 'RIGHT', spacing, 0)
+			total = total + spacing
+		end
+		frame:Size(width, self.db.height)
+		current = frame
+		total = total + width
+	end
+
+	if typeWidth > 0 then Place(self.TypeFrame, typeWidth) end
+	if nameWidth > 0 then Place(self.NameFrame, nameWidth) end
+	if realmWidth > 0 then Place(self.RealmFrame, realmWidth) end
+
+	-- Input anchor.
+	self.InputFrame:ClearAllPoints()
+	if current == self.Holder then
+		self.InputFrame:Point('TOPLEFT', self.Holder, 'TOPLEFT', 0, 0)
+	else
+		self.InputFrame:Point('LEFT', current, 'RIGHT', spacing, 0)
+		total = total + spacing
+	end
+	self.InputFrame:Size(inputWidth, self.db.height)
+	current = self.InputFrame
+	total = total + inputWidth
+
+	-- Counter anchor.
+	if self.db.showCounter and self.CounterFrame then
+		self.CounterFrame:ClearAllPoints()
+		self.CounterFrame:Point('LEFT', current, 'RIGHT', spacing, 0)
+		self.CounterFrame:Size(counterWidth, self.db.height)
+		self.CounterFrame:SetFrameStrata(self.Holder:GetFrameStrata())
+		self.CounterFrame:SetFrameLevel(self.Holder:GetFrameLevel())
+		total = total + spacing + counterWidth
+	end
+
+	self.Holder:Size(total, self.db.height)
+end
+
+-- Remove the extra right inset ElvUI adds for the in-box counter.
+function D:UpdateTextInsets(editbox)
+	if not editbox or not editbox.GetTextInsets then return end
+
+	local _, insetRight, insetTop, insetBottom = editbox:GetTextInsets()
+
+	-- Blizzard pads the left side to fit the header text; we want custom input padding instead.
+	local padding = self:GetInputPadding()
+	local leftInset = math.max(0, padding)
+	local rightInset = math.max(0, (insetRight or 0) - 30) + math.max(0, padding)
+	editbox:SetTextInsets(leftInset, rightInset, insetTop or 0, insetBottom or 0)
+end
+
+-- Enforce inset adjustments even if other code re-applies padding.
+function D:InstallInsetHook(editbox)
+	if not editbox or editbox.detachatInsetHooked or not editbox.SetTextInsets then return end
+
+	local module = self
+	hooksecurefunc(editbox, 'SetTextInsets', function(box, left, right, top, bottom)
+		if box.detachatSkipInsetHook then return end
+		if not module.db or not module.db.enabled then return end
+
+		box.detachatSkipInsetHook = true
+		local padding = module:GetInputPadding()
+		local fixedRight = math.max(0, (right or 0) - 30) + math.max(0, padding)
+		box:SetTextInsets(math.max(0, padding), fixedRight, top or 0, bottom or 0)
+		box.detachatSkipInsetHook = false
+	end)
+
+	editbox.detachatInsetHooked = true
 end
 
 -- Anchor the counter either inside the edit box or inside the detached frame.
@@ -291,7 +621,13 @@ end
 function D:OnChatEditUpdateHeader(_, editbox)
 	if not editbox then return end
 
-	self:SyncCounterStyle(editbox)
+	self:UpdateHeaderFrames(editbox)
+	self:UpdateTextInsets(editbox)
+	self:InstallInsetHook(editbox)
+	self:UpdateCharacterCountDisplay(editbox)
+	if editbox.header then
+		editbox.header:Hide()
+	end
 	if editbox.HasFocus and not editbox:HasFocus() then
 		self:SetEditBoxDefaultBorder(editbox)
 	end
@@ -410,13 +746,13 @@ end
 
 -- Prevent tab clicks from focusing the chat input by restoring prior focus.
 function D:FCF_Tab_OnClick(tab, button)
-	local previousFocus = GetFocus and GetFocus() or nil
+	local previousFocus = GetKeyboardFocus and GetKeyboardFocus() or nil
 
 	self.hooks[CH].FCF_Tab_OnClick(tab, button)
 
 	if not self.db.preventTabFocus then return end
 
-	local newFocus = GetFocus and GetFocus() or nil
+	local newFocus = GetKeyboardFocus and GetKeyboardFocus() or nil
 	if newFocus == previousFocus then return end
 
 	if self:IsChatEditBox(newFocus) then
@@ -447,32 +783,40 @@ function D:RepositionEditBoxes()
 	if not self.db.enabled then return end
 	if not self.Holder then return end
 
+	self:CreateHeaderFrames()
+
 	if self.db.showCounter then
 		self:CreateCounterFrame()
 	elseif self.CounterFrame then
 		self.CounterFrame:Hide()
 	end
 
-	-- Padding lets us inset the edit box without changing its template.
-	local padding = self.db.padding or 0
-	-- Guard against negative padding that would invert the inset.
-	if padding < 0 then padding = 0 end
+	-- Text padding is handled via text insets; the edit box fills the input frame.
 
 	-- ElvUI creates one edit box per chat frame; we anchor them all.
 	for _, frameName in ipairs(_G.CHAT_FRAMES) do
 		local chat = _G[frameName]
 		local editbox = chat and chat.editBox
 		if editbox then
+			self:UpdateHeaderFrames(editbox)
+
+			if editbox.header then
+				editbox.header:Hide()
+			end
+
 			-- Clear default ElvUI anchors and stick to the detached holder.
 			editbox:ClearAllPoints()
-			editbox:Point('TOPLEFT', self.Holder, padding, -padding)
-			editbox:Point('BOTTOMRIGHT', self.Holder, -padding, padding)
+			editbox:Point('TOPLEFT', self.InputFrame, 0, 0)
+			editbox:Point('BOTTOMRIGHT', self.InputFrame, 0, 0)
 
 			-- We do not reparent to avoid taint/secure edit box edge cases.
 			-- Match the holder's layer so the input stays visible.
 			editbox:SetFrameStrata(self.Holder:GetFrameStrata())
 			-- Keep the input slightly above the holder to avoid click issues.
 			editbox:SetFrameLevel(self.Holder:GetFrameLevel() + 1)
+
+			self:UpdateTextInsets(editbox)
+			self:InstallInsetHook(editbox)
 
 			-- Move the character counter into the detached frame.
 			self:ApplyCounterMode(editbox)

@@ -71,16 +71,18 @@ function D:AddOptions()
 
 	-- Height and padding always apply to the holder.
 	size.args.height = ACH:Range(L["Height"] or 'Height', nil, 4, { min = 18, max = 60, step = 1 })
-	size.args.padding = ACH:Range(L["Padding"] or 'Padding', L["Inset the input within the holder."] or 'Inset the input within the holder.', 5, { min = 0, max = 20, step = 1 })
+	size.args.inputPadding = ACH:Range(L["Input Text Padding"] or 'Input Text Padding', L["Horizontal padding inside the input frame."] or 'Horizontal padding inside the input frame.', 5, { min = 0, max = 20, step = 1 })
+	size.args.labelPadding = ACH:Range(L["Left Text Padding"] or 'Left Text Padding', L["Padding for the text labels to the left of the input."] or 'Padding for the text labels to the left of the input.', 6, { min = 0, max = 20, step = 1 })
+	size.args.counterPadding = ACH:Range(L["Right Text Padding"] or 'Right Text Padding', L["Padding for the counter text to the right of the input."] or 'Padding for the counter text to the right of the input.', 7, { min = 0, max = 20, step = 1 })
 
 	-- Counter controls live with size settings to keep them discoverable.
-	size.args.alwaysShowInput = ACH:Toggle(L["Always Show Input"] or 'Always Show Input', L["Keep the chat input visible even when it is not focused."] or 'Keep the chat input visible even when it is not focused.', 6)
-	size.args.hideWhenUnfocused = ACH:Toggle(L["Hide When Unfocused"] or 'Hide When Unfocused', L["Hide the chat input when it is not focused (overrides classic behavior)."] or 'Hide the chat input when it is not focused (overrides classic behavior).', 7, nil, nil, nil, nil, nil, function()
+	size.args.alwaysShowInput = ACH:Toggle(L["Always Show Input"] or 'Always Show Input', L["Keep the chat input visible even when it is not focused."] or 'Keep the chat input visible even when it is not focused.', 8)
+	size.args.hideWhenUnfocused = ACH:Toggle(L["Hide When Unfocused"] or 'Hide When Unfocused', L["Hide the chat input when it is not focused (overrides classic behavior)."] or 'Hide the chat input when it is not focused (overrides classic behavior).', 9, nil, nil, nil, nil, nil, function()
 		return E.db.detachat.alwaysShowInput
 	end)
-	size.args.preventTabFocus = ACH:Toggle(L["Prevent Tab Auto Focus"] or 'Prevent Tab Auto Focus', L["Keep the chat input from auto-focusing when switching tabs."] or 'Keep the chat input from auto-focusing when switching tabs.', 8)
-	size.args.showCounter = ACH:Toggle(L["Show Counter"] or 'Show Counter', L["Display the character counter frame next to the input."] or 'Display the character counter frame next to the input.', 9)
-	size.args.alwaysShowCounter = ACH:Toggle(L["Always Show Counter"] or 'Always Show Counter', L["Keep the character counter visible even when the input is hidden."] or 'Keep the character counter visible even when the input is hidden.', 10, nil, nil, nil, nil, nil, function()
+	size.args.preventTabFocus = ACH:Toggle(L["Prevent Tab Auto Focus"] or 'Prevent Tab Auto Focus', L["Keep the chat input from auto-focusing when switching tabs."] or 'Keep the chat input from auto-focusing when switching tabs.', 10)
+	size.args.showCounter = ACH:Toggle(L["Show Counter"] or 'Show Counter', L["Display the character counter frame next to the input."] or 'Display the character counter frame next to the input.', 11)
+	size.args.alwaysShowCounter = ACH:Toggle(L["Always Show Counter"] or 'Always Show Counter', L["Keep the character counter visible even when the input is hidden."] or 'Keep the character counter visible even when the input is hidden.', 12, nil, nil, nil, nil, nil, function()
 		return not E.db.detachat.showCounter
 	end)
 
